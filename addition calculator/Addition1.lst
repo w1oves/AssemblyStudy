@@ -1,0 +1,238 @@
+Microsoft (R) Macro Assembler Version 6.11		    11/10/19 12:38:49
+tempfile.asm						     Page 1 - 1
+
+
+ 0000				DATAS SEGMENT
+				    ;此处输入数据段代码  
+				    ;提醒用户输入的字符串
+ 0000 49 4E 50 55 54 20		    SENTENCE1 DB "INPUT A + B :$"
+       41 20 2B 20 42 20
+       3A 24
+				    ;回车字符
+ 000E 0A 0D			    CRLF DB 0AH,0DH
+ 0010  24			    	 DB "$"
+				   	;输入字符串缓冲区
+ 0011 50			   	INPUT_BUFF DB 80
+ 0012  00			   			   DB ?
+ 0013  0050 [			   			   DB 80 DUP(?)
+        00
+       ]
+				   			   
+ 0063 50			   	OUT_NUM    DB 80
+ 0064  00			   			   DB ?
+ 0065  0050 [			   			   DB 80 DUP(0)
+        00
+       ]
+ 00B5				DATAS ENDS
+ 0000				EXTRAS SEGMENT
+ 0000 4E			   	INPUT_A	   DB 78
+ 0001  00			   			   DB ?
+ 0002  004E [			   			   DB 78 DUP(0)
+        00
+       ]
+ 0050 4E			   	INPUT_B    DB 78
+ 0051  00			   			   DB ?
+ 0052  004E [			   			   DB 78 DUP(0)
+        00
+       ]
+ 00A0				EXTRAS ENDS
+ 0000				STACKS SEGMENT
+				    ;此处输入堆栈段代码
+				    
+ 0000				STACKS ENDS
+
+ 0000				CODES SEGMENT
+				    ASSUME CS:CODES,DS:DATAS,SS:STACKS,ES:EXTRAS
+ 0000				START:
+ 0000  B8 ---- R		    MOV AX,DATAS
+ 0003  8E D8			    MOV DS,AX
+ 0005  B8 ---- R		    MOV AX,EXTRAS
+ 0008  8E C0			    MOV ES,AX
+				    ;此处输入代码段代码
+ 000A  8D 16 0000 R		    LEA DX,SENTENCE1	;提醒用户输入
+ 000E  B4 09			    MOV AH,09H
+ 0010  CD 21			    INT 21H
+				    
+ 0012  8D 16 000E R		    LEA DX,CRLF			;回车
+ 0016  B4 09			    MOV AH,09H
+ 0018  CD 21			    INT 21H				
+				    
+ 001A  8D 16 0011 R		    LEA DX,INPUT_BUFF	;输入字符串缓存
+ 001E  B4 0A			    MOV AH,0AH
+ 0020  CD 21			    INT 21H
+				    
+ 0022  8D 16 000E R		    LEA DX,CRLF			;回车
+ 0026  B4 09			    MOV AH,09H
+ 0028  CD 21			    INT 21H	
+				    
+ 002A  33 C9			    XOR CX,CX			;清空cx并将输入字符串总长度存入cx
+ 002C  8A 0E 0012 R		    MOV CL,INPUT_BUFF+1
+					
+ 0030  8D 36 0013 R			LEA SI,INPUT_BUFF+2	;设置串操作地址
+ 0034  8D 3E 0002 R			LEA DI,INPUT_A+2
+ 0038  33 DB				XOR BX,BX
+ 003A  AC				AGAIN:LODSB			;串操作,将加号前后的数分离
+ 003B  3C 2B					CMP AL,'+'
+ 003D  74 08					JZ CHANGE_TO_B
+ 003F  80 C3 01					ADD BL,1
+ 0042  2C 30					SUB AL,30H
+ 0044  AA					STOSB	
+ 0045  EB 0B					JMP NEXT1
+						
+ 0047					CHANGE_TO_B:
+ 0047  8D 3E 0052 R				LEA DI,INPUT_B+2
+ 004B  26: 88 1E 0001 R				MOV INPUT_A+1,BL
+ 0050  33 DB					XOR BX,BX
+ 0052					NEXT1:
+ 0052  E2 E6					LOOP AGAIN
+ 0054  26: 88 1E 0051 R			MOV INPUT_B+1,BL	;在INPUT_A+1和INPUT_B+1中存入对应的长度
+					;将INPUT_A逆序存储
+ 0059  33 C9				XOR CX,CX
+ 005B  33 C0				XOR AX,AX
+ 005D  26: 8A 0E 0001 R			MOV CL,INPUT_A+1
+ 0062  8D 1E 0002 R			LEA BX,INPUT_A+2
+					;入栈A
+ 0066				AGAIN2:
+ 0066  26: 8A 07			MOV AL,ES:[BX]
+ 0069  50				PUSH AX
+ 006A  43				INC BX
+ 006B  E2 F9				LOOP AGAIN2
+					
+ 006D  33 C9				XOR CX,CX
+ 006F  26: 8A 0E 0001 R			MOV CL,INPUT_A+1
+ 0074  8D 1E 0002 R			LEA BX,INPUT_A+2
+					;出栈A
+ 0078				AGAIN3:
+ 0078  58				POP AX
+ 0079  26: 88 07			MOV ES:[BX],AL
+ 007C  43				INC BX
+ 007D  E2 F9				LOOP AGAIN3
+
+ 007F  33 C9				XOR CX,CX
+ 0081  33 C0				XOR AX,AX
+ 0083  26: 8A 0E 0051 R			MOV CL,INPUT_B+1
+ 0088  8D 1E 0052 R			LEA BX,INPUT_B+2
+					;入栈B
+ 008C				AGAIN5:
+ 008C  26: 8A 07			MOV AL,ES:[BX]
+ 008F  50				PUSH AX
+ 0090  43				INC BX
+ 0091  E2 F9				LOOP AGAIN5
+					;出栈B
+ 0093  33 C9				XOR CX,CX
+ 0095  26: 8A 0E 0051 R			MOV CL,INPUT_B+1
+ 009A  8D 1E 0052 R			LEA BX,INPUT_B+2
+ 009E				AGAIN6:
+ 009E  58				POP AX
+ 009F  26: 88 07			MOV ES:[BX],AL
+ 00A2  43				INC BX
+ 00A3  E2 F9				LOOP AGAIN6
+					;找出A和B较长的长度
+ 00A5  33 C9				XOR CX,CX
+ 00A7  26: A0 0001 R			MOV AL,INPUT_A+1
+ 00AB  26: 8A 1E 0051 R			MOV BL,INPUT_B+1
+ 00B0  38 D8				CMP AL,BL
+ 00B2  77 04				JA A_IS_ABOVE
+ 00B4  8A CB				MOV CL,BL
+ 00B6  EB 02				JMP NEXT2
+ 00B8				A_IS_ABOVE:	
+ 00B8  8A C8				MOV CL,AL
+ 00BA				NEXT2:
+ 00BA  8B D1				MOV DX,CX
+ 00BC  41				INC CX
+ 00BD  8D 1E 0065 R			LEA BX,OUT_NUM+2
+ 00C1  8D 3E 0002 R			LEA DI,INPUT_A+2
+ 00C5  8D 36 0052 R			LEA SI,INPUT_B+2
+ 00C9  33 C0				XOR AX,AX
+					;执行加法程序
+ 00CB				AGAIN8:
+ 00CB  26: 8A 05			MOV BYTE PTR AL,ES:[DI]
+ 00CE  26: 8A 24			MOV BYTE PTR AH,ES:[SI]
+ 00D1  02 C4				ADD AL,AH
+ 00D3  3C 09				CMP AL,9
+ 00D5  77 02				JA NEED_CARRY
+ 00D7  EB 07				JMP NEXT3
+ 00D9				NEED_CARRY:
+ 00D9  47				INC DI
+ 00DA  26: FE 05			INC BYTE PTR ES:[DI]
+ 00DD  4F				DEC DI
+ 00DE  2C 0A				SUB AL,10
+ 00E0				NEXT3:
+ 00E0  88 07				MOV BYTE PTR [BX],AL
+ 00E2  43				INC BX
+ 00E3  47				INC DI
+ 00E4  46				INC SI
+ 00E5  E2 E4				LOOP AGAIN8
+					;判断输出长度
+ 00E7  8B DA				MOV BX,DX
+ 00E9  8A 87 0065 R			MOV BYTE PTR AL,OUT_NUM[BX]+2
+ 00ED  3C 00				CMP AL,0
+ 00EF  77 02				JA NEED_INC_DX
+ 00F1  EB 01				JMP NEXT4
+ 00F3				NEED_INC_DX:
+ 00F3  42				INC DX
+ 00F4				NEXT4:
+ 00F4  88 16 0064 R			MOV OUT_NUM+1,DL
+					;输出结果
+ 00F8  8A 0E 0064 R			MOV CL,OUT_NUM+1
+ 00FC  8D 1E 0065 R			LEA BX,OUT_NUM+2
+ 0100  03 D9				ADD BX,CX
+ 0102  4B				DEC BX
+ 0103  B4 02				MOV AH,02H
+ 0105				AGAIN9:
+ 0105  8A 17				MOV DL,DS:[BX]
+ 0107  80 C2 30				ADD DL,'0'
+ 010A  4B				DEC BX
+ 010B  CD 21				INT 21H
+ 010D  E2 F6				LOOP AGAIN9
+
+ 010F  B4 4C			    MOV AH,4CH
+ 0111  CD 21			    INT 21H
+ 0113				CODES ENDS
+				    END START
+
+Microsoft (R) Macro Assembler Version 6.11		    11/10/19 12:38:49
+tempfile.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+CODES  . . . . . . . . . . . . .	16 Bit	 0113	  Para	  Private 
+DATAS  . . . . . . . . . . . . .	16 Bit	 00B5	  Para	  Private 
+EXTRAS . . . . . . . . . . . . .	16 Bit	 00A0	  Para	  Private 
+STACKS . . . . . . . . . . . . .	16 Bit	 0000	  Para	  Private 
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+AGAIN2 . . . . . . . . . . . . .	L Near	 0066	  CODES	
+AGAIN3 . . . . . . . . . . . . .	L Near	 0078	  CODES	
+AGAIN5 . . . . . . . . . . . . .	L Near	 008C	  CODES	
+AGAIN6 . . . . . . . . . . . . .	L Near	 009E	  CODES	
+AGAIN8 . . . . . . . . . . . . .	L Near	 00CB	  CODES	
+AGAIN9 . . . . . . . . . . . . .	L Near	 0105	  CODES	
+AGAIN  . . . . . . . . . . . . .	L Near	 003A	  CODES	
+A_IS_ABOVE . . . . . . . . . . .	L Near	 00B8	  CODES	
+CHANGE_TO_B  . . . . . . . . . .	L Near	 0047	  CODES	
+CRLF . . . . . . . . . . . . . .	Byte	 000E	  DATAS	
+INPUT_A  . . . . . . . . . . . .	Byte	 0000	  EXTRAS	
+INPUT_BUFF . . . . . . . . . . .	Byte	 0011	  DATAS	
+INPUT_B  . . . . . . . . . . . .	Byte	 0050	  EXTRAS	
+NEED_CARRY . . . . . . . . . . .	L Near	 00D9	  CODES	
+NEED_INC_DX  . . . . . . . . . .	L Near	 00F3	  CODES	
+NEXT1  . . . . . . . . . . . . .	L Near	 0052	  CODES	
+NEXT2  . . . . . . . . . . . . .	L Near	 00BA	  CODES	
+NEXT3  . . . . . . . . . . . . .	L Near	 00E0	  CODES	
+NEXT4  . . . . . . . . . . . . .	L Near	 00F4	  CODES	
+OUT_NUM  . . . . . . . . . . . .	Byte	 0063	  DATAS	
+SENTENCE1  . . . . . . . . . . .	Byte	 0000	  DATAS	
+START  . . . . . . . . . . . . .	L Near	 0000	  CODES	
+
+	   0 Warnings
+	   0 Errors

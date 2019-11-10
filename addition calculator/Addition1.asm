@@ -1,0 +1,186 @@
+;加法计数器实现：
+;1，提醒用户输入
+;2，调用DOS中断将输入存入到输入缓冲区INPUT_BUFF
+;3，通过串操作将INPUT_BUFF以加号分割为INPUT_A与INPUT_B两个对应缓冲区
+;4，通过栈操作将A、B倒序，实现低位在前，高位在后以方便运算
+;5，将A与B以字节为单位，每个字节存储一个数字，相加并存入OUT_NUM缓冲区
+;6，输出OUT_NUM
+DATAS SEGMENT
+    ;此处输入数据段代码  
+    ;提醒用户输入的字符串
+    SENTENCE1 DB "INPUT A + B :$"
+    ;回车字符
+    CRLF DB 0AH,0DH
+    	 DB "$"
+   	;输入字符串缓冲区
+   	INPUT_BUFF DB 80
+   			   DB ?
+   			   DB 80 DUP(?)
+   			   
+   	OUT_NUM    DB 80
+   			   DB ?
+   			   DB 80 DUP(0)
+DATAS ENDS
+EXTRAS SEGMENT
+   	INPUT_A	   DB 78
+   			   DB ?
+   			   DB 78 DUP(0)
+   	INPUT_B    DB 78
+   			   DB ?
+   			   DB 78 DUP(0)
+EXTRAS ENDS
+STACKS SEGMENT
+    ;此处输入堆栈段代码
+    
+STACKS ENDS
+
+CODES SEGMENT
+    ASSUME CS:CODES,DS:DATAS,SS:STACKS,ES:EXTRAS
+START:
+    MOV AX,DATAS
+    MOV DS,AX
+    MOV AX,EXTRAS
+    MOV ES,AX
+    ;此处输入代码段代码
+    LEA DX,SENTENCE1	;提醒用户输入
+    MOV AH,09H
+    INT 21H
+    
+    LEA DX,CRLF			;回车
+    MOV AH,09H
+    INT 21H				
+    
+    LEA DX,INPUT_BUFF	;输入字符串缓存
+    MOV AH,0AH
+    INT 21H
+    
+    LEA DX,CRLF			;回车
+    MOV AH,09H
+    INT 21H	
+    
+    XOR CX,CX			;清空cx并将输入字符串总长度存入cx
+    MOV CL,INPUT_BUFF+1
+	
+	LEA SI,INPUT_BUFF+2	;设置串操作地址
+	LEA DI,INPUT_A+2
+	XOR BX,BX
+	AGAIN:LODSB			;串操作,将加号前后的数分离
+		CMP AL,'+'
+		JZ CHANGE_TO_B
+		ADD BL,1
+		SUB AL,30H
+		STOSB	
+		JMP NEXT1
+		
+	CHANGE_TO_B:
+		LEA DI,INPUT_B+2
+		MOV INPUT_A+1,BL
+		XOR BX,BX
+	NEXT1:
+		LOOP AGAIN
+	MOV INPUT_B+1,BL	;在INPUT_A+1和INPUT_B+1中存入对应的长度
+	;将INPUT_A逆序存储
+	XOR CX,CX
+	XOR AX,AX
+	MOV CL,INPUT_A+1
+	LEA BX,INPUT_A+2
+	;入栈A
+AGAIN2:
+	MOV AL,ES:[BX]
+	PUSH AX
+	INC BX
+	LOOP AGAIN2
+	
+	XOR CX,CX
+	MOV CL,INPUT_A+1
+	LEA BX,INPUT_A+2
+	;出栈A
+AGAIN3:
+	POP AX
+	MOV ES:[BX],AL
+	INC BX
+	LOOP AGAIN3
+
+	XOR CX,CX
+	XOR AX,AX
+	MOV CL,INPUT_B+1
+	LEA BX,INPUT_B+2
+	;入栈B
+AGAIN5:
+	MOV AL,ES:[BX]
+	PUSH AX
+	INC BX
+	LOOP AGAIN5
+	;出栈B
+	XOR CX,CX
+	MOV CL,INPUT_B+1
+	LEA BX,INPUT_B+2
+AGAIN6:
+	POP AX
+	MOV ES:[BX],AL
+	INC BX
+	LOOP AGAIN6
+	;找出A和B较长的长度
+	XOR CX,CX
+	MOV AL,INPUT_A+1
+	MOV BL,INPUT_B+1
+	CMP AL,BL
+	JA A_IS_ABOVE
+	MOV CL,BL
+	JMP NEXT2
+A_IS_ABOVE:	
+	MOV CL,AL
+NEXT2:
+	MOV DX,CX
+	INC CX
+	LEA BX,OUT_NUM+2
+	LEA DI,INPUT_A+2
+	LEA SI,INPUT_B+2
+	XOR AX,AX
+	;执行加法程序
+AGAIN8:
+	MOV BYTE PTR AL,ES:[DI]
+	MOV BYTE PTR AH,ES:[SI]
+	ADD AL,AH
+	CMP AL,9
+	JA NEED_CARRY
+	JMP NEXT3
+NEED_CARRY:
+	INC DI
+	INC BYTE PTR ES:[DI]
+	DEC DI
+	SUB AL,10
+NEXT3:
+	MOV BYTE PTR [BX],AL
+	INC BX
+	INC DI
+	INC SI
+	LOOP AGAIN8
+	;判断输出长度
+	MOV BX,DX
+	MOV BYTE PTR AL,OUT_NUM[BX]+2
+	CMP AL,0
+	JA NEED_INC_DX
+	JMP NEXT4
+NEED_INC_DX:
+	INC DX
+NEXT4:
+	MOV OUT_NUM+1,DL
+	;输出结果
+	MOV CL,OUT_NUM+1
+	LEA BX,OUT_NUM+2
+	ADD BX,CX
+	DEC BX
+	MOV AH,02H
+AGAIN9:
+	MOV DL,DS:[BX]
+	ADD DL,'0'
+	DEC BX
+	INT 21H
+	LOOP AGAIN9
+
+    MOV AH,4CH
+    INT 21H
+CODES ENDS
+    END START
+
