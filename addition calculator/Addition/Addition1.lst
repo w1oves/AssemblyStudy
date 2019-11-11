@@ -1,7 +1,17 @@
-Microsoft (R) Macro Assembler Version 6.11		    11/10/19 12:38:49
+Microsoft (R) Macro Assembler Version 6.11		    11/10/19 13:01:22
 tempfile.asm						     Page 1 - 1
 
 
+				;本程序及相关工程开源于GITHUB:
+				;https://github.com/w1oves/AssemblyStudy.git
+				;概览：程序初版，只支持加法，通过字符串依次相加完成
+				;具体实现方法：
+				;1，提醒用户输入
+				;2，调用DOS中断将输入存入到输入缓冲区INPUT_BUFF
+				;3，通过串操作将INPUT_BUFF以加号分割为INPUT_A与INPUT_B两个对应缓冲区
+				;4，通过栈操作将A、B倒序，实现低位在前，高位在后以方便运算
+				;5，将A与B以字节为单位，每个字节存储一个数字，相加并存入OUT_NUM缓冲区
+				;6，输出OUT_NUM
  0000				DATAS SEGMENT
 				    ;此处输入数据段代码  
 				    ;提醒用户输入的字符串
@@ -191,7 +201,7 @@ tempfile.asm						     Page 1 - 1
  0113				CODES ENDS
 				    END START
 
-Microsoft (R) Macro Assembler Version 6.11		    11/10/19 12:38:49
+Microsoft (R) Macro Assembler Version 6.11		    11/10/19 13:01:22
 tempfile.asm						     Symbols 2 - 1
 
 

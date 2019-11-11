@@ -1,4 +1,5 @@
-;本程序及相关工程开源于GITHUB:
+;本程序及相关工程开源于Github:
+;https://github.com/w1oves/AssemblyStudy.git
 ;概览：程序初版，只支持加法，通过字符串依次相加完成
 ;具体实现方法：
 ;1，提醒用户输入

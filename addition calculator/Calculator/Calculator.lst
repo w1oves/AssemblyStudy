@@ -1,0 +1,296 @@
+Microsoft (R) Macro Assembler Version 6.11		    11/12/19 00:08:37
+tempfile.asm						     Page 1 - 1
+
+
+ 0000				DATAS SEGMENT
+				    ;此处输入数据段代码  
+ 0000 50			    INPUT_STRING DB 80
+ 0001  00			   			     DB ?
+ 0002  39 37 24			   			     DB "97$"
+ 0005 50			   	OUT_STRING   DB 80
+ 0006  00			   				 DB ?
+ 0007  0050 [			   				 DB 80 DUP('0')
+        30
+       ]
+				   	;提醒用户输入的字符串
+ 0057 49 4E 50 55 54 20		    SENTENCE1 DB "INPUT A + B :$"
+       41 20 2B 20 42 20
+       3A 24
+				    ;回车字符
+ 0065 0A 0D			    CRLF DB 0AH,0DH
+ 0067  24			    	 DB "$"
+				   	;输入字符串缓冲区
+ 0068 50			   	INPUT_BUFF DB 80
+ 0069  00			   			   DB ?
+ 006A  0050 [			   			   DB 80 DUP(?)
+        00
+       ]
+ 00BA 4E			   	INPUT_A	   DB 78
+ 00BB  00			   			   DB ?
+ 00BC  004E [			   			   DB 78 DUP(0)
+        00
+       ]
+ 010A 4E			   	INPUT_B    DB 78
+ 010B  00			   			   DB ?
+ 010C  004E [			   			   DB 78 DUP(0)
+        00
+       ]
+ 015A 0000			   	NUM_A      DW 0
+ 015C 00			   	FLAG       DB 0  ;1-ADD,2-SUB,3-MUL,4-DIV
+ 015D				DATAS ENDS
+
+ 0000				STACKS SEGMENT
+				    ;此处输入堆栈段代码
+ 0000				STACKS ENDS
+
+ 0000				CODES SEGMENT
+				    ASSUME CS:CODES,DS:DATAS,SS:STACKS
+ 0000				START:
+ 0000  B8 ---- R		    MOV AX,DATAS
+ 0003  8E D8			    MOV DS,AX
+				    ;此处输入代码段代码
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;主程序;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 0005  8D 16 0057 R			LEA DX,SENTENCE1	;提醒用户输入
+ 0009  B4 09			    MOV AH,09H
+ 000B  CD 21			    INT 21H
+				    
+ 000D  8D 16 0065 R		    LEA DX,CRLF			;回车
+ 0011  B4 09			    MOV AH,09H
+ 0013  CD 21			    INT 21H				
+				    
+ 0015  8D 16 0068 R		    LEA DX,INPUT_BUFF	;输入字符串缓存
+ 0019  B4 0A			    MOV AH,0AH
+ 001B  CD 21			    INT 21H
+				    
+ 001D  8D 16 0065 R		    LEA DX,CRLF			;回车
+ 0021  B4 09			    MOV AH,09H
+ 0023  CD 21			    INT 21H	
+				    
+ 0025  33 C9			    XOR CX,CX			;清空cx并将输入字符串总长度存入cx
+ 0027  8A 0E 0069 R		    MOV CL,INPUT_BUFF+1
+					
+ 002B  8D 36 006A R			LEA SI,INPUT_BUFF+2	;设置串操作地址
+ 002F  8D 3E 00BC R			LEA DI,INPUT_A+2
+ 0033  33 DB				XOR BX,BX
+ 0035					AGAIN:			;串操作,将加号前后的数分离
+ 0035  8A 04					MOV AL,DS:[SI]
+ 0037  3C 2B					CMP AL,'+'
+ 0039  74 13					JZ FLAG_ADD
+ 003B  3C 2D					CMP AL,'-'
+ 003D  74 16					JZ FLAG_SUB
+ 003F  3C 2A					CMP AL,'*'
+ 0041  74 19					JZ FLAG_MUL
+ 0043  3C 2F					CMP AL,'/'
+ 0045  74 1C					JZ FLAG_DIV
+ 0047  80 C3 01					ADD BL,1
+ 004A  88 05					MOV DS:[DI],AL
+						
+ 004C  EB 29					JMP NEXT1
+ 004E					FLAG_ADD:
+ 004E  C6 06 015C R 01				MOV BYTE PTR FLAG,1H
+ 0053  EB 15					JMP CHANGE_TO_B
+ 0055					FLAG_SUB:
+ 0055  C6 06 015C R 02				MOV BYTE PTR FLAG,2H
+ 005A  EB 0E					JMP CHANGE_TO_B
+ 005C					FLAG_MUL:
+ 005C  C6 06 015C R 03				MOV BYTE PTR FLAG,3H
+ 0061  EB 07					JMP CHANGE_TO_B
+ 0063					FLAG_DIV:
+ 0063  C6 06 015C R 04				MOV BYTE PTR FLAG,4H
+ 0068  EB 00					JMP CHANGE_TO_B
+						
+ 006A					CHANGE_TO_B:
+ 006A  C6 05 24					MOV BYTE PTR DS:[DI],24H
+ 006D  8D 3E 010B R				LEA DI,INPUT_B+1
+ 0071  88 1E 00BB R				MOV INPUT_A+1,BL
+ 0075  33 DB					XOR BX,BX
+ 0077					NEXT1:
+ 0077  47					INC DI
+ 0078  46					INC SI
+ 0079  E2 BA					LOOP AGAIN
+ 007B  88 1E 010B R			MOV INPUT_B+1,BL	;在INPUT_A+1和INPUT_B+1中存入对应的长度
+					
+ 007F  8A 1E 010B R		    MOV BL,INPUT_B+1
+ 0083  C6 87 010C R 24		    MOV BYTE PTR INPUT_B+2[BX],24H
+				    	
+ 0088  8D 1E 00BC R		    LEA BX,INPUT_A+2
+ 008C  E8 004C			    CALL STRING_TO_NUM
+ 008F  A3 015A R		    MOV NUM_A,AX
+				    
+ 0092  8D 1E 010C R		    LEA BX,INPUT_B+2
+ 0096  E8 0042			    CALL STRING_TO_NUM
+ 0099  8B C8			    MOV CX,AX
+				    
+ 009B  A1 015A R		    MOV AX,NUM_A
+ 009E  8A 1E 015C R		    MOV BL,FLAG
+ 00A2  80 FB 01			    CMP BL,1H
+ 00A5  74 0F			    JZ TOADD
+ 00A7  80 FB 02			    CMP BL,2H
+ 00AA  74 0E			    JZ TOSUB
+ 00AC  80 FB 03			    CMP BL,3H
+ 00AF  74 0D			    JZ TOMUL
+ 00B1  80 FB 04			    CMP BL,4H
+ 00B4  74 0C			    JZ TODIV
+ 00B6				TOADD:
+ 00B6  03 C1			    ADD AX,CX
+ 00B8  EB 0E			    JMP NEXT2
+ 00BA				TOSUB:
+ 00BA  2B C1				SUB AX,CX
+ 00BC  EB 0A				JMP NEXT2
+ 00BE				TOMUL:
+ 00BE  F7 E1			    MUL CX
+ 00C0  EB 06			    JMP NEXT2
+ 00C2				TODIV:
+ 00C2  33 D2				XOR DX,DX
+ 00C4  F7 F1				DIV CX
+ 00C6  EB 00				JMP NEXT2
+					
+ 00C8				NEXT2:
+ 00C8  8D 1E 0005 R		    LEA BX,OUT_STRING
+ 00CC  E8 002E			    CALL NUM_TO_STRING
+				    
+ 00CF  8D 16 0007 R		    LEA DX,OUT_STRING+2
+ 00D3  B4 09			    MOV AH,09H
+ 00D5  CD 21			    INT 21H
+				    
+ 00D7  B4 4C			    MOV AH,4CH
+ 00D9  CD 21			    INT 21H
+				    
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;;;;;;;;;;;;;;;;;;;;;子程序：STRING_TO_NUM;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;入口参数：BX:数字字符串地址，字符串要求以‘$’结尾的无符号数，大小为0-65536,存储在数据段
+				;出口参数：AX:转换后的数字
+				;程序效果：字符串转数字
+ 00DB				STRING_TO_NUM PROC
+ 00DB  33 C0				XOR AX,AX
+ 00DD  33 C9				XOR CX,CX
+ 00DF  33 D2				XOR DX,DX
+ 00E1				AGAIN_S_1:
+ 00E1  8A 17				MOV DL,[BX]
+					
+ 00E3  43				INC BX
+ 00E4  80 FA 24				CMP DL,'$'
+ 00E7  74 13				JZ STRING_TO_NUM_END
+					
+ 00E9  8B C8				MOV CX,AX
+ 00EB  D1 E0				SAL AX,1
+ 00ED  D1 E0				SAL AX,1
+ 00EF  D1 E0				SAL AX,1
+ 00F1  03 C1				ADD AX,CX
+ 00F3  03 C1				ADD AX,CX
+					
+ 00F5  80 EA 30				SUB DL,'0'
+ 00F8  03 C2				ADD AX,DX
+ 00FA  EB E5				JMP AGAIN_S_1
+ 00FC  C3			STRING_TO_NUM_END:	RET
+ 00FD				STRING_TO_NUM ENDP
+
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;;;;;;;;;;;;;;;;;;;;;子程序：NUM_TO_STRING;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				;入口参数：BX:输出字符串缓冲区地址，要求格式:
+				;		      首字节：最大长度
+				;             第二字节：实际长度
+				;             其余字节：内容
+				;          AX:待转换数字：0-65535的无符号数
+				;出口参数：无
+				;程序效果：数字转字符串
+				;          在1[BX]填入字符串长度
+				;          在2[BX]及之后填入字符串
+				;          字符串以‘$’结尾	
+ 00FD				NUM_TO_STRING PROC
+ 00FD  B9 0024				MOV CX,0024H   ;MOV CX,'$'
+ 0100  51				PUSH CX
+ 0101  33 D2				XOR DX,DX
+ 0103  B9 000A				MOV CX,0AH
+ 0106				AGAIN_N_1:
+ 0106  33 D2				XOR DX,DX
+ 0108  B9 000A				MOV CX,0AH
+ 010B  F7 F1				DIV CX
+ 010D  83 C2 30				ADD DX,30H     ;ADD DX,'0'
+ 0110  52				PUSH DX
+ 0111  83 F8 00				CMP AX,0
+ 0114  74 02				JZ NEXT_N_1
+ 0116  EB EE	JMP AGAIN_N_1
+ 0118				NEXT_N_1:
+ 0118  33 C0				XOR AX,AX
+ 011A  BF 0002				MOV DI,2
+ 011D				AGAIN_N_2:
+ 011D  58				POP AX
+ 011E  88 01				MOV BYTE PTR [DI][BX],AL
+ 0120  47				INC DI
+ 0121  83 F8 24				CMP AX,24H
+ 0124  74 02				JZ NEXT_N_2
+ 0126  EB F5				JMP AGAIN_N_2
+ 0128				NEXT_N_2:
+ 0128  83 EF 02				SUB DI,2
+ 012B  8B CF				MOV CX,DI
+ 012D  88 4F 01				MOV BYTE PTR 1[BX],CL
+ 0130  C3			NUM_TO_STRING_END:	RET
+ 0131				NUM_TO_STRING ENDP
+
+ 0131				CODES ENDS
+				    END START
+
+Microsoft (R) Macro Assembler Version 6.11		    11/12/19 00:08:37
+tempfile.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+CODES  . . . . . . . . . . . . .	16 Bit	 0131	  Para	  Private 
+DATAS  . . . . . . . . . . . . .	16 Bit	 015D	  Para	  Private 
+STACKS . . . . . . . . . . . . .	16 Bit	 0000	  Para	  Private 
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+NUM_TO_STRING  . . . . . . . . .	P Near	 00FD	  CODES	Length= 0034 Public
+  AGAIN_N_1  . . . . . . . . . .	L Near	 0106	  CODES	
+  NEXT_N_1 . . . . . . . . . . .	L Near	 0118	  CODES	
+  AGAIN_N_2  . . . . . . . . . .	L Near	 011D	  CODES	
+  NEXT_N_2 . . . . . . . . . . .	L Near	 0128	  CODES	
+  NUM_TO_STRING_END  . . . . . .	L Near	 0130	  CODES	
+STRING_TO_NUM  . . . . . . . . .	P Near	 00DB	  CODES	Length= 0022 Public
+  AGAIN_S_1  . . . . . . . . . .	L Near	 00E1	  CODES	
+  STRING_TO_NUM_END  . . . . . .	L Near	 00FC	  CODES	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+AGAIN  . . . . . . . . . . . . .	L Near	 0035	  CODES	
+CHANGE_TO_B  . . . . . . . . . .	L Near	 006A	  CODES	
+CRLF . . . . . . . . . . . . . .	Byte	 0065	  DATAS	
+FLAG_ADD . . . . . . . . . . . .	L Near	 004E	  CODES	
+FLAG_DIV . . . . . . . . . . . .	L Near	 0063	  CODES	
+FLAG_MUL . . . . . . . . . . . .	L Near	 005C	  CODES	
+FLAG_SUB . . . . . . . . . . . .	L Near	 0055	  CODES	
+FLAG . . . . . . . . . . . . . .	Byte	 015C	  DATAS	
+INPUT_A  . . . . . . . . . . . .	Byte	 00BA	  DATAS	
+INPUT_BUFF . . . . . . . . . . .	Byte	 0068	  DATAS	
+INPUT_B  . . . . . . . . . . . .	Byte	 010A	  DATAS	
+INPUT_STRING . . . . . . . . . .	Byte	 0000	  DATAS	
+NEXT1  . . . . . . . . . . . . .	L Near	 0077	  CODES	
+NEXT2  . . . . . . . . . . . . .	L Near	 00C8	  CODES	
+NUM_A  . . . . . . . . . . . . .	Word	 015A	  DATAS	
+OUT_STRING . . . . . . . . . . .	Byte	 0005	  DATAS	
+SENTENCE1  . . . . . . . . . . .	Byte	 0057	  DATAS	
+START  . . . . . . . . . . . . .	L Near	 0000	  CODES	
+TOADD  . . . . . . . . . . . . .	L Near	 00B6	  CODES	
+TODIV  . . . . . . . . . . . . .	L Near	 00C2	  CODES	
+TOMUL  . . . . . . . . . . . . .	L Near	 00BE	  CODES	
+TOSUB  . . . . . . . . . . . . .	L Near	 00BA	  CODES	
+
+	   0 Warnings
+	   0 Errors
